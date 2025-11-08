@@ -53,17 +53,23 @@ TEMPLATES = [
 WSGI_APPLICATION = 'sms_project.wsgi.application'
 
 # Database - PostgreSQL
+#DATABASES = {
+#    'default': {
+#        'ENGINE': 'django.db.backends.sqlite3',
+#        'NAME': config('DB_NAME', default='student_management'),
+#        'USER': config('DB_USER', default='postgres'),
+#        'PASSWORD': config('DB_PASSWORD', default='12345678'),
+#        'HOST': config('DB_HOST', default='localhost'),
+#        'PORT': config('DB_PORT', default='5432'),
+#    }
+#}
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME', default='student_management'),
-        'USER': config('DB_USER', default='postgres'),
-        'PASSWORD': config('DB_PASSWORD', default='12345678'),
-        'HOST': config('DB_HOST', default='localhost'),
-        'PORT': config('DB_PORT', default='5432'),
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / config('DB_NAME', default='db.sqlite3'),
     }
 }
-
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {

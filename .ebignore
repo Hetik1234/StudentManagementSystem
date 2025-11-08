@@ -1,0 +1,22 @@
+# --- Common ignores ---
+.git/
+__pycache__/
+*.pyc
+*.pyo
+*.db
+*.sqlite3
+*.log
+*.gz
+*.zip
+*.tar
+*.bak
+*.swp
+.env
+venv/
+screenshots/
+.DS_Store
+
+# --- Docker-related files (keep Dockerfile!) ---
+docker-compose.yml
+verify_app.sh
+sync_env.sh

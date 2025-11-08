@@ -34,3 +34,10 @@ logs/
 
 # Docker
 docker-compose.override.yml
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml
+
+#testing scripts
+verify_app.sh
