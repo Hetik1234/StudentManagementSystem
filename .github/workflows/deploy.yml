@@ -1,64 +1,62 @@
-name: EB deploy master123
+name: CI/CD Deploy to Elastic Beanstalk
 
 on:
-
   push:
-
     branches:
-
       - main
 
 jobs:
-
   deploy:
-
+    name: Build → Push to ECR → Deploy to EB
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout code
-
         uses: actions/checkout@v4
 
-      - name: Set up Python
-
-        uses: actions/setup-python@v5
-
+      # Login to AWS (requires GitHub secrets)
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
 
-          python-version: "3.11"
-
-      - name: Install dependencies
-
+      # Login to Amazon ECR
+      - name: Login to ECR
         run: |
+          aws ecr get-login-password --region us-east-1 | \
+          docker login --username AWS --password-stdin 628743843080.dkr.ecr.us-east-1.amazonaws.com
 
-          python -m pip install --upgrade pip
+      # Build Docker image
+      - name: Build Docker image
+        run: |
+          docker build -t sms_project_web .
 
-          pip install -r requirements.txt
+      # Tag image for ECR
+      - name: Tag Docker image
+        run: |
+          docker tag sms_project_web:latest 628743843080.dkr.ecr.us-east-1.amazonaws.com/student_management_system:latest
 
-      - name: Zip application
+      # Push Docker image to ECR
+      - name: Push Docker image to ECR
+        run: |
+          docker push 628743843080.dkr.ecr.us-east-1.amazonaws.com/student_management_system:latest
 
-        run: zip -r application.zip . -x "*.git*"
+      # Zip app for EB (contains Dockerrun.aws.json)
+      - name: Zip app
+        run: zip -r deploy.zip Dockerrun.aws.json .elasticbeanstalk/
 
-      - name: ElasticBeanstalk deploy
-
+      # Deploy to Elastic Beanstalk
+      - name: Deploy to EB
         uses: einaregilsson/beanstalk-deploy@v22
-
         with:
-
           aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
-
           aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
           aws_session_token: ${{ secrets.AWS_SESSION_TOKEN }}
-
           application_name: StudentManagementSystem
-
           environment_name: sms-env
-
           version_label: v-${{ github.run_number }}
-
           region: us-east-1
-
-          deployment_package: application.zip
- 
+          deployment_package: deploy.zip
