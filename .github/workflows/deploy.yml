@@ -6,45 +6,83 @@ on:
       - main
 
 jobs:
-  deploy:
-    name: Build → Scan → Deploy
+
+  # -------------------------------------------------
+  # 1) BUILD & TEST JOB
+  # -------------------------------------------------
+  build:
+    name: Build & Test
     runs-on: ubuntu-latest
 
     steps:
-      # -------------------------
-      # Checkout
-      # -------------------------
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # required for SonarCloud
+          fetch-depth: 0
 
-      # -------------------------
-      # SonarCloud Scan
-      # -------------------------
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@v2
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          projectBaseDir: .
-      # -------------------------
-      # Python Setup####
-      # -------------------------
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # -------------------------
-      # AWS Credentials
-      # -------------------------
-      - name: Configure AWS credentials
+      - name: Run tests
+        run: |
+          echo "No tests yet"  # replace with pytest later
+          # pytest --cov=. --cov-report=xml
+
+      - name: Upload coverage (optional for SonarCloud)
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.xml
+          if-no-files-found: ignore
+
+
+  # -------------------------------------------------
+  # 2) SONARCLOUD JOB
+  # -------------------------------------------------
+  sonar:
+    name: SonarCloud Scan
+    runs-on: ubuntu-latest
+    needs: build  # wait for build job
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download coverage results
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage
+          path: .
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@v2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: .
+
+  # -------------------------------------------------
+  # 3) DEPLOY TO AWS ELASTIC BEANSTALK
+  # -------------------------------------------------
+  deploy:
+    name: Deploy to EB
+    runs-on: ubuntu-latest
+    needs: sonar   # run only if Sonar scan succeeds
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -52,10 +90,7 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
-      # -------------------------
-      # Docker Build → ECR Push
-      # -------------------------
-      - name: Login to Amazon ECR
+      - name: Login to ECR
         run: |
           aws ecr get-login-password --region us-east-1 |
           docker login --username AWS --password-stdin 628743843080.dkr.ecr.us-east-1.amazonaws.com
@@ -69,15 +104,9 @@ jobs:
       - name: Push Docker image
         run: docker push 628743843080.dkr.ecr.us-east-1.amazonaws.com/student_management_system:latest
 
-      # -------------------------
-      # EB ZIP packaging
-      # -------------------------
-      - name: Create EB package
+      - name: Create Elastic Beanstalk package
         run: zip -r deploy.zip Dockerrun.aws.json .elasticbeanstalk/
 
-      # -------------------------
-      # Deploy to Elastic Beanstalk
-      # -------------------------
       - name: Deploy to Elastic Beanstalk
         uses: einaregilsson/beanstalk-deploy@v22
         with:
