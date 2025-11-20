@@ -28,11 +28,6 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           projectBaseDir: .
-          args: >
-            -Dsonar.projectKey=your_sonarcloud_project_key
-            -Dsonar.organization=your_org_key
-            -Dsonar.python.version=3.11
-
       # -------------------------
       # Python Setup
       # -------------------------
