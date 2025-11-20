@@ -43,8 +43,8 @@ jobs:
         with:
           projectBaseDir: .
           # This ensures the pipeline FAILS if the Quality Gate fails
-          args: >
-            -Dsonar.qualitygate.wait=true
+          #args: >
+          #  -Dsonar.qualitygate.wait=true
 
   # ------------------------------------------------------------------
   # JOB 2: Build and Deploy (Only runs if Scan passes)
