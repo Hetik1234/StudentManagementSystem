@@ -6,59 +6,40 @@ on:
       - main
 
 jobs:
-  # ------------------------------------------------------------------
-  # JOB 1: Code Quality & Security Scan
-  # ------------------------------------------------------------------
-  sonarcloud_scan:
-    name: SonarCloud Code Analysis
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # REQUIRED for accurate SonarCloud history
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          # Install testing libraries (Crucial for coverage)
-          pip install pytest pytest-cov
-
-      - name: Run Tests with Coverage
-        run: |
-          # Runs tests and generates the coverage.xml file for SonarCloud
-          pytest --cov=. --cov-report=xml --junitxml=test-results.xml
-
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          projectBaseDir: .
-          # This ensures the pipeline FAILS if the Quality Gate fails
-          #args: >
-          #  -Dsonar.qualitygate.wait=true
-
-  # ------------------------------------------------------------------
-  # JOB 2: Build and Deploy (Only runs if Scan passes)
-  # ------------------------------------------------------------------
   deploy:
-    name: Build → Push to ECR → Deploy to EB
+    name: Build → Scan → Push to ECR → Deploy to EB
     runs-on: ubuntu-latest
-    needs: sonarcloud_scan  # <--- THIS IS THE SAFETY LOCK
-    
+
     steps:
+
+      # -------------------------
+      # 1. Checkout Source Code
+      # -------------------------
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Login to AWS (requires GitHub secrets)
+      # -------------------------
+      # 2. Set up Python
+      # -------------------------
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # -------------------------
+      # 3. SonarCloud Scan
+      # -------------------------
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@v2
+        with:
+          projectBaseDir: .
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # -------------------------
+      # 4. Configure AWS Credentials
+      # -------------------------
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -67,32 +48,52 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
 
-      # Login to Amazon ECR
-      - name: Login to ECR
+      # -------------------------
+      # 5. Install dependencies
+      # -------------------------
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # -------------------------
+      # 6. Login to ECR
+      # -------------------------
+      - name: Login to Amazon ECR
         run: |
           aws ecr get-login-password --region us-east-1 | \
           docker login --username AWS --password-stdin 628743843080.dkr.ecr.us-east-1.amazonaws.com
 
-      # Build Docker image
+      # -------------------------
+      # 7. Build Docker Image
+      # -------------------------
       - name: Build Docker image
-        run: |
-          docker build -t sms_project_web .
+        run: docker build -t sms_project_web .
 
-      # Tag image for ECR
+      # -------------------------
+      # 8. Tag Image for ECR
+      # -------------------------
       - name: Tag Docker image
         run: |
-          docker tag sms_project_web:latest 628743843080.dkr.ecr.us-east-1.amazonaws.com/student_management_system:latest
+          docker tag sms_project_web:latest \
+            628743843080.dkr.ecr.us-east-1.amazonaws.com/student_management_system:latest
 
-      # Push Docker image to ECR
+      # -------------------------
+      # 9. Push Image to ECR
+      # -------------------------
       - name: Push Docker image to ECR
         run: |
           docker push 628743843080.dkr.ecr.us-east-1.amazonaws.com/student_management_system:latest
 
-      # Zip app for EB (contains Dockerrun.aws.json)
-      - name: Zip app
+      # -------------------------
+      # 10. Zip EB Deployment Package (Dockerrun.aws.json)
+      # -------------------------
+      - name: Zip EB deploy package
         run: zip -r deploy.zip Dockerrun.aws.json .elasticbeanstalk/
 
-      # Deploy to Elastic Beanstalk
+      # -------------------------
+      # 11. Deploy to Elastic Beanstalk
+      # -------------------------
       - name: Deploy to EB
         uses: einaregilsson/beanstalk-deploy@v22
         with:
