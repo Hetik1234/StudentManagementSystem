@@ -6,7 +6,6 @@ on:
       - main
 
 jobs:
-
   # -------------------------------------------------
   # 1) BUILD & TEST JOB
   # -------------------------------------------------
@@ -30,10 +29,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run tests
+      - name: Run pytest
         run: |
-          echo "No tests yet"  # replace with pytest later
-          # pytest --cov=. --cov-report=xml
+          pytest
 
       - name: Upload coverage (optional for SonarCloud)
         uses: actions/upload-artifact@v4
@@ -41,7 +39,6 @@ jobs:
           name: coverage
           path: coverage.xml
           if-no-files-found: ignore
-
 
   # -------------------------------------------------
   # 2) SONARCLOUD JOB
@@ -63,7 +60,6 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           projectBaseDir: .
-
 
   # -------------------------------------------------
   # 3) DEPLOY TO AWS EB
@@ -113,7 +109,6 @@ jobs:
           region: us-east-1
           version_label: v-${{ github.run_number }}
           deployment_package: deploy.zip
-
 
   # -------------------------------------------------
   # 4) OWASP ZAP BASELINE SCAN
