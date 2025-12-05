@@ -143,9 +143,9 @@ jobs:
   # 6) DEPLOY TO AWS ELASTIC BEANSTALK
   # -------------------------------------------------
   deploy:
-  runs-on: ubuntu-latest
-  needs: push_ecr
-  name: Deploy to Elastic Beanstalk
+    runs-on: ubuntu-latest
+    needs: push_ecr
+    name: Deploy to Elastic Beanstalk
 
   steps:
     - uses: actions/checkout@v4
