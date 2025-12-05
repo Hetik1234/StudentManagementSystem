@@ -5,10 +5,10 @@ on:
     branches:
       - main
 
-# -------------------------------------------------
-# 1) LINT JOB (PYLINT)
-# -------------------------------------------------
 jobs:
+  # -------------------------------------------------
+  # 1) LINT JOB (PYLINT)
+  # -------------------------------------------------
   lint:
     runs-on: ubuntu-latest
     name: Lint Code (pylint)
@@ -28,8 +28,9 @@ jobs:
       - name: Run pylint
         run: pylint smsapp sms_project --exit-zero
 
+
   # -------------------------------------------------
-  # 2) STATIC SECURITY SCAN (BANDIT + SAFETY)
+  # 2) SECURITY JOB (BANDIT + SAFETY)
   # -------------------------------------------------
   security:
     runs-on: ubuntu-latest
@@ -47,11 +48,12 @@ jobs:
         run: |
           pip install bandit safety
 
-      - name: Run bandit (SAST)
+      - name: Bandit (SAST)
         run: bandit -r smsapp -ll --exit-zero
 
-      - name: Run safety (dependency vulnerabilities)
+      - name: Safety (dependency vulnerabilities)
         run: safety check || true
+
 
   # -------------------------------------------------
   # 3) TEST JOB (PYTEST)
@@ -83,8 +85,9 @@ jobs:
           path: coverage.xml
           if-no-files-found: ignore
 
+
   # -------------------------------------------------
-  # 4) SONARCLOUD ANALYSIS
+  # 4) SONARCLOUD QUALITY GATE
   # -------------------------------------------------
   sonar:
     runs-on: ubuntu-latest
@@ -102,32 +105,14 @@ jobs:
         with:
           projectBaseDir: .
 
-  # -------------------------------------------------
-  # 5) BUILD DOCKER IMAGE
-  # -------------------------------------------------
-  build_image:
-    runs-on: ubuntu-latest
-    needs: sonar
-    name: Build Docker Image
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build Docker image
-        run: docker build -t sms_project_web .
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: docker-image-metadata
-          path: docker-image-info.txt
 
   # -------------------------------------------------
-  # 6) PUSH IMAGE TO ECR
+  # 5) PUSH DOCKER IMAGE TO ECR
   # -------------------------------------------------
   push_ecr:
     runs-on: ubuntu-latest
-    needs: build_image
-    name: Push to AWS ECR
+    needs: sonar
+    name: Build & Push Docker Image to AWS ECR
 
     steps:
       - uses: actions/checkout@v4
@@ -144,13 +129,18 @@ jobs:
           aws ecr get-login-password --region us-east-1 |
           docker login --username AWS --password-stdin 628743843080.dkr.ecr.us-east-1.amazonaws.com
 
+      # BUILD IMAGE HERE (NOT IN OTHER JOBS)
+      - name: Build Docker image
+        run: docker build -t sms_project_web .
+
       - name: Tag and push
         run: |
           docker tag sms_project_web:latest 628743843080.dkr.ecr.us-east-1.amazonaws.com/student_management_system:latest
           docker push 628743843080.dkr.ecr.us-east-1.amazonaws.com/student_management_system:latest
 
+
   # -------------------------------------------------
-  # 7) DEPLOY TO AWS EB
+  # 6) DEPLOY TO AWS ELASTIC BEANSTALK
   # -------------------------------------------------
   deploy:
     runs-on: ubuntu-latest
@@ -160,7 +150,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Create EB ZIP
+      - name: Create EB bundle
         run: zip -r deploy.zip Dockerrun.aws.json .elasticbeanstalk/
 
       - uses: aws-actions/configure-aws-credentials@v4
@@ -174,17 +164,22 @@ jobs:
         with:
           application_name: StudentManagementSystem
           environment_name: sms-env
-          version_label: v-${{ github.run_number }}
           region: us-east-1
+          version_label: v-${{ github.run_number }}
           deployment_package: deploy.zip
 
+
   # -------------------------------------------------
-  # 8) POST-DEPLOY SECURITY SCAN (OWASP ZAP)
+  # 7) POST DEPLOYMENT DYNAMIC SECURITY TEST (OWASP ZAP)
   # -------------------------------------------------
   zap_scan:
     runs-on: ubuntu-latest
     needs: deploy
     name: OWASP ZAP Baseline Scan
+
+    permissions:
+      contents: read
+      security-events: write
 
     steps:
       - uses: actions/checkout@v4
