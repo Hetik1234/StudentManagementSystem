@@ -7,7 +7,7 @@ on:
 
 jobs:
 
-   # 1) LINT JOB (PYLINT)
+# 1) LINT JOB (PYLINT)
   lint:
     runs-on: ubuntu-latest
     name: Lint Code (pylint)
