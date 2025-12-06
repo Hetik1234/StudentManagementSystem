@@ -101,8 +101,11 @@ jobs:
           name: coverage
           path: .
 
-      - name: Show coverage file (debug)
-        run: ls -l ./coverage.xml || echo "coverage.xml not found"
+      - name: Debug coverage
+        run: |
+          echo "Coverage files:"
+          ls -l .
+          head -20 coverage.xml
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v2
